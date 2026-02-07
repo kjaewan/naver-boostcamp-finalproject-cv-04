@@ -118,6 +118,7 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
   const playerRef = useRef<YTPlayer | null>(null);
   const currentVideoIdRef = useRef<string | null>(null);
   const repeatingRef = useRef(true);
+  const isUnmountedRef = useRef(false);
 
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -135,25 +136,34 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
   }, [isRepeating]);
 
   useEffect(() => {
-    let cancelled = false;
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let stale = false;
 
     if (!videoId || playerRef.current || !playerHostRef.current) {
       return () => {
-        cancelled = true;
+        stale = true;
       };
     }
 
+    const initialVideoId = videoId;
+
     void loadYoutubeIframeApi()
       .then((YT) => {
-        if (cancelled || !playerHostRef.current || playerRef.current) {
+        if (stale || isUnmountedRef.current || !playerHostRef.current || playerRef.current) {
           return;
         }
 
-        currentVideoIdRef.current = videoId;
+        currentVideoIdRef.current = initialVideoId;
         playerRef.current = new YT.Player(playerHostRef.current, {
           width: "1",
           height: "1",
-          videoId,
+          videoId: initialVideoId,
           playerVars: {
             autoplay: 1,
             controls: 0,
@@ -163,15 +173,16 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
           },
           events: {
             onReady: (event) => {
-              if (cancelled) return;
+              if (isUnmountedRef.current) return;
               setIsReady(true);
               setDuration(event.target.getDuration() || 0);
               setVolume(event.target.getVolume() || 80);
               setIsMuted(event.target.isMuted());
               event.target.playVideo();
+              setIsPlaying(true);
             },
             onStateChange: (event) => {
-              if (cancelled) return;
+              if (isUnmountedRef.current) return;
               setIsPlaying(event.data === YT.PlayerState.PLAYING);
               if (event.data === YT.PlayerState.PAUSED) {
                 setCurrentTime(event.target.getCurrentTime() || 0);
@@ -190,13 +201,13 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
         });
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!stale && !isUnmountedRef.current) {
           setIsReady(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      stale = true;
     };
   }, [videoId]);
 
@@ -209,6 +220,9 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
     }
 
     currentVideoIdRef.current = videoId;
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(true);
     playerRef.current.loadVideoById(videoId);
     playerRef.current.playVideo();
   }, [videoId, isReady]);
