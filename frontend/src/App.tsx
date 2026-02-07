@@ -73,8 +73,24 @@ export default function App() {
   }, [actionLoading, job]);
 
   useEffect(() => {
-    setDisplayProgress(progressTarget);
-  }, [progressTarget]);
+    if (!isGenerating) {
+      setDisplayProgress(progressTarget);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setDisplayProgress((prev) => {
+        if (prev >= progressTarget) {
+          return progressTarget;
+        }
+        const delta = progressTarget - prev;
+        const step = Math.max(0.2, delta * 0.25);
+        return Math.min(progressTarget, prev + step);
+      });
+    }, 80);
+
+    return () => window.clearInterval(interval);
+  }, [isGenerating, progressTarget]);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -116,7 +132,7 @@ export default function App() {
       } catch (err) {
         setError((err as Error).message);
       }
-    }, 800);
+    }, 500);
 
     return () => window.clearInterval(interval);
   }, [job]);

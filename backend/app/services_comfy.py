@@ -85,49 +85,97 @@ class ComfyService:
     def _clamp_ratio(value: float) -> float:
         return max(0.0, min(1.0, value))
 
-    def _extract_sampling_ratio(self, message_type: str, payload: dict[str, Any]) -> Optional[float]:
-        if message_type == "progress":
-            max_value = self._as_float(payload.get("max"))
-            current_value = self._as_float(payload.get("value"))
-            if max_value <= 1:
-                return None
-            return self._clamp_ratio(current_value / max_value)
-
-        if message_type != "progress_state":
+    @staticmethod
+    def _normalize_node_id(value: Any) -> Optional[str]:
+        if value is None:
             return None
+        text = str(value).strip()
+        return text or None
 
+    def _compute_execution_ratio(
+        self,
+        total_nodes: int,
+        done_nodes: set[str],
+        running_node_ratios: dict[str, float],
+    ) -> float:
+        total = max(1, total_nodes)
+        done_count = min(total, len(done_nodes))
+        remaining = max(0, total - done_count)
+
+        running_partial = 0.0
+        for node_id, ratio in running_node_ratios.items():
+            if node_id in done_nodes:
+                continue
+            running_partial += self._clamp_ratio(ratio)
+        running_partial = min(float(remaining), running_partial)
+        return self._clamp_ratio((done_count + running_partial) / float(total))
+
+    def _mark_done_nodes(self, payload: dict[str, Any], done_nodes: set[str], running_node_ratios: dict[str, float]) -> None:
+        nodes = payload.get("nodes")
+        if not isinstance(nodes, list):
+            return
+        for item in nodes:
+            node_id = self._normalize_node_id(item)
+            if not node_id:
+                continue
+            done_nodes.add(node_id)
+            running_node_ratios.pop(node_id, None)
+
+    def _update_from_progress_event(
+        self,
+        payload: dict[str, Any],
+        done_nodes: set[str],
+        running_node_ratios: dict[str, float],
+    ) -> None:
+        node_id = self._normalize_node_id(payload.get("node"))
+        if not node_id or node_id in done_nodes:
+            return
+        max_value = self._as_float(payload.get("max"))
+        current_value = self._as_float(payload.get("value"))
+        if max_value <= 1:
+            return
+        running_node_ratios[node_id] = self._clamp_ratio(current_value / max_value)
+
+    def _update_from_progress_state(
+        self,
+        payload: dict[str, Any],
+        done_nodes: set[str],
+        running_node_ratios: dict[str, float],
+    ) -> None:
         nodes = payload.get("nodes")
         if not isinstance(nodes, dict):
-            return None
-
-        best_ratio: Optional[float] = None
-        best_rank = -1.0
-        for node in nodes.values():
-            if not isinstance(node, dict):
+            return
+        for raw_node_id, node_payload in nodes.items():
+            node_id = self._normalize_node_id(raw_node_id)
+            if not node_id or not isinstance(node_payload, dict):
                 continue
-            max_value = self._as_float(node.get("max"))
+            state = str(node_payload.get("state", ""))
+            if state == "finished":
+                done_nodes.add(node_id)
+                running_node_ratios.pop(node_id, None)
+                continue
+            if state != "running" or node_id in done_nodes:
+                continue
+            max_value = self._as_float(node_payload.get("max"))
+            current_value = self._as_float(node_payload.get("value"))
             if max_value <= 1:
                 continue
-            current_value = self._as_float(node.get("value"))
-            state = str(node.get("state", ""))
-            ratio = self._clamp_ratio(current_value / max_value)
-            state_rank = 2 if state == "running" else 1 if state == "finished" else 0
-            rank = state_rank * 1_000_000 + max_value
-            if rank > best_rank:
-                best_rank = rank
-                best_ratio = ratio
-        return best_ratio
+            running_node_ratios[node_id] = self._clamp_ratio(current_value / max_value)
 
     async def _stream_sampling_progress(
         self,
         client_id: str,
         prompt_id_ref: dict[str, Optional[str]],
+        total_nodes: int,
         sampling_progress_callback: SamplingProgressCallback,
     ) -> None:
         if websockets is None:
             return
 
         ws_url = self._build_ws_url(client_id)
+        done_nodes: set[str] = set()
+        running_node_ratios: dict[str, float] = {}
+        last_ratio = 0.0
         try:
             async with websockets.connect(
                 ws_url,
@@ -161,15 +209,36 @@ class ComfyService:
                     if target_prompt_id and payload_prompt_id and payload_prompt_id != target_prompt_id:
                         continue
 
-                    sampling_ratio = self._extract_sampling_ratio(message_type, payload)
-                    if sampling_ratio is not None:
-                        await sampling_progress_callback(sampling_ratio)
+                    should_emit = False
+                    if message_type == "execution_cached":
+                        self._mark_done_nodes(payload, done_nodes, running_node_ratios)
+                        should_emit = True
+                    elif message_type == "executed":
+                        node_id = self._normalize_node_id(payload.get("node"))
+                        if node_id:
+                            done_nodes.add(node_id)
+                            running_node_ratios.pop(node_id, None)
+                            should_emit = True
+                    elif message_type == "progress":
+                        self._update_from_progress_event(payload, done_nodes, running_node_ratios)
+                        should_emit = True
+                    elif message_type == "progress_state":
+                        self._update_from_progress_state(payload, done_nodes, running_node_ratios)
+                        should_emit = True
+
+                    if should_emit:
+                        ratio = self._compute_execution_ratio(total_nodes, done_nodes, running_node_ratios)
+                        if ratio > last_ratio:
+                            last_ratio = ratio
+                            await sampling_progress_callback(ratio)
 
                     if (
                         target_prompt_id
                         and payload_prompt_id == target_prompt_id
                         and message_type in {"execution_success", "execution_error", "execution_interrupted"}
                     ):
+                        if last_ratio < 1.0:
+                            await sampling_progress_callback(1.0)
                         break
                     if (
                         target_prompt_id
@@ -177,6 +246,8 @@ class ComfyService:
                         and message_type == "executing"
                         and payload.get("node") is None
                     ):
+                        if last_ratio < 1.0:
+                            await sampling_progress_callback(1.0)
                         break
         except asyncio.CancelledError:
             raise
@@ -339,6 +410,7 @@ class ComfyService:
         if phase_callback:
             await phase_callback("prompting")
         prompt = self.build_prompt(image_filename=image_filename, cache_key=cache_key)
+        total_nodes = max(1, len(prompt))
         client_id = uuid.uuid4().hex
         prompt_id_ref: dict[str, Optional[str]] = {"value": None}
         sampling_task: Optional[asyncio.Task[None]] = None
@@ -347,6 +419,7 @@ class ComfyService:
                 self._stream_sampling_progress(
                     client_id=client_id,
                     prompt_id_ref=prompt_id_ref,
+                    total_nodes=total_nodes,
                     sampling_progress_callback=sampling_progress_callback,
                 )
             )

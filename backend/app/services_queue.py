@@ -23,11 +23,11 @@ from .storage import Storage
 
 PHASE_PROGRESS = {
     "queued": 0,
-    "preparing": 10,
-    "prompting": 25,
-    "sampling": 70,
-    "assembling": 90,
-    "postprocessing": 95,
+    "preparing": 8,
+    "prompting": 15,
+    "sampling": 20,
+    "assembling": 93,
+    "postprocessing": 97,
     "done": 100,
     "error": 100,
 }
