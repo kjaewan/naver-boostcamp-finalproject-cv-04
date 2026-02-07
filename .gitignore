@@ -1,0 +1,39 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Frontend build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Generated Live2D assets (do not commit runtime outputs)
+data/inputs/
+data/renders/
+live2d/data/inputs/
+live2d/data/renders/
+
+# Extra safety for generated media files under data/
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.webp
+data/**/*.mp4
+live2d/data/**/*.jpg
+live2d/data/**/*.jpeg
+live2d/data/**/*.png
+live2d/data/**/*.webp
+live2d/data/**/*.mp4
+
+# OS/IDE noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
