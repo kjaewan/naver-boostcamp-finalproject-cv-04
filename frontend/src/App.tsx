@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   createRenderJob,
@@ -9,7 +9,6 @@ import {
   TrackItem
 } from "./api";
 import AudioControlBar from "./components/AudioControlBar";
-import RenderResult from "./components/RenderResult";
 import SearchBox from "./components/SearchBox";
 import TrackCandidates from "./components/TrackCandidates";
 
@@ -21,6 +20,8 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createRequestInFlightRef = useRef(false);
+  const isRenderingLocked = actionLoading || job?.status === "queued" || job?.status === "processing";
 
   useEffect(() => {
     if (!job) return;
@@ -39,6 +40,8 @@ export default function App() {
   }, [job]);
 
   const handleSearchSubmit = async () => {
+    if (isRenderingLocked) return;
+
     const term = query.trim();
     if (!term) {
       setTracks([]);
@@ -50,9 +53,6 @@ export default function App() {
       setError(null);
       const data = await searchMusic(term, 3);
       setTracks(data.items);
-      if (data.items.length > 0) {
-        setSelectedTrack(data.items[0]);
-      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -60,24 +60,23 @@ export default function App() {
     }
   };
 
-  const handleCreateRender = async () => {
-    if (!selectedTrack) {
-      setError("Select a track first.");
-      return;
-    }
+  const requestRenderForTrack = async (track: TrackItem) => {
+    if (createRequestInFlightRef.current) return;
 
     const payload: RenderCreateRequest = {
-      track_id: selectedTrack.track_id,
-      album_id: selectedTrack.album_id ?? null,
-      title: selectedTrack.title,
-      artist: selectedTrack.artist,
-      album_art_url: selectedTrack.album_art_url,
-      youtube_video_id: selectedTrack.youtube_video_id
+      track_id: track.track_id,
+      album_id: track.album_id ?? null,
+      title: track.title,
+      artist: track.artist,
+      album_art_url: track.album_art_url,
+      youtube_video_id: track.youtube_video_id
     };
 
     try {
+      createRequestInFlightRef.current = true;
       setActionLoading(true);
       setError(null);
+      setJob(null);
       const created = await createRenderJob(payload);
       const current = await getRenderJob(created.job_id);
       setJob(current);
@@ -85,50 +84,83 @@ export default function App() {
       setError((err as Error).message);
     } finally {
       setActionLoading(false);
+      createRequestInFlightRef.current = false;
     }
   };
 
-  let actionMessage = "트랙 선택 후 Generate를 누르세요.";
+  const handleSelectTrack = (track: TrackItem) => {
+    if (isRenderingLocked || createRequestInFlightRef.current) {
+      return;
+    }
+
+    const isSameTrack = selectedTrack?.track_id === track.track_id;
+    const isCurrentJobTrack = job?.track.track_id === track.track_id;
+    if (isSameTrack && isCurrentJobTrack && job?.status !== "failed") {
+      return;
+    }
+
+    setSelectedTrack(track);
+    void requestRenderForTrack(track);
+  };
+
+  let actionMessage = "트랙을 선택하면 자동으로 이미지 생성이 시작됩니다.";
+  let statusTone: "idle" | "busy" | "ready" | "error" = "idle";
   if (job) {
     if (job.status === "processing" || job.status === "queued") {
-      actionMessage = `생성중... ${job.progress}%`;
+      actionMessage = `생성중... ${job.progress}% (안정성을 위해 다른 조작이 잠겨 있습니다)`;
+      statusTone = "busy";
     } else if (job.status === "completed") {
-      actionMessage = "완료되었습니다.";
+      actionMessage = "완료되었습니다. 다른 곡을 선택하면 새 작업을 시작합니다.";
+      statusTone = "ready";
     } else if (job.status === "failed") {
       actionMessage = `실패: ${job.error.code ?? "UNKNOWN"}`;
+      statusTone = "error";
     }
   }
 
   return (
-    <main className="app-shell">
-      <header className="hero">
-        <p className="eyebrow">MVP</p>
-        <h1>Music Search + Live2D Render</h1>
-        <p className="subtitle">Play music instantly while your album art becomes a looped Live2D video.</p>
-      </header>
-
-      <SearchBox value={query} loading={searchLoading} onChange={setQuery} onSubmit={handleSearchSubmit} />
-
-      <section className="grid-two main-grid">
-        <TrackCandidates
-          items={tracks}
-          selectedTrackId={selectedTrack?.track_id ?? null}
-          onSelect={setSelectedTrack}
+    <main className="wire-shell">
+      <section className="left-stack">
+        <SearchBox
+          value={query}
+          loading={searchLoading}
+          disabled={isRenderingLocked}
+          onChange={setQuery}
+          onSubmit={handleSearchSubmit}
         />
-        <RenderResult job={job} />
+
+        <section className={`wire-box status-alert ${statusTone}`}>
+          <p className="status-alert-title">상태 알림</p>
+          <p className="status-alert-message">{actionMessage}</p>
+        </section>
+
+        <section className="wire-box album-box">
+          <div className="album-frame">
+            {selectedTrack ? (
+              <img src={selectedTrack.album_art_url} alt={`${selectedTrack.title} album art`} />
+            ) : (
+              <p className="wire-placeholder album-empty">선택한 노래 앨범아트</p>
+            )}
+          </div>
+          <div className="album-meta">
+            <p className="album-title">{selectedTrack?.title ?? "노래제목"}</p>
+            <p className="album-artist">{selectedTrack?.artist ?? "아티스트"}</p>
+          </div>
+        </section>
+
+        {error && <div className="global-error">{error}</div>}
       </section>
 
-      <section className="panel action-panel">
-        <button className="primary-btn" onClick={handleCreateRender} disabled={!selectedTrack || actionLoading}>
-          {actionLoading ? "Submitting..." : "Generate Live2D Render"}
-        </button>
-        <span className="job-hint">{actionMessage}</span>
-        {job?.status === "completed" && <span className="cache-badge">Ready</span>}
+      <TrackCandidates
+        items={tracks}
+        selectedTrackId={selectedTrack?.track_id ?? null}
+        disabled={isRenderingLocked}
+        onSelect={handleSelectTrack}
+      />
+
+      <section className="wire-box controls-box controls-floating">
+        <AudioControlBar selectedTrack={selectedTrack} />
       </section>
-
-      {error && <div className="global-error">{error}</div>}
-
-      <AudioControlBar tracks={tracks} selectedTrack={selectedTrack} onSelect={setSelectedTrack} />
     </main>
   );
 }
