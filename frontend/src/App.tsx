@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  absUrl,
   createRenderJob,
   getRenderJob,
   RenderCreateRequest,
@@ -118,25 +119,20 @@ export default function App() {
     }
   }
 
+  const live2dVideoUrl = job?.status === "completed" ? absUrl(job.result.video_url) : null;
+
   return (
     <main className="wire-shell">
       <section className="left-stack">
-        <SearchBox
-          value={query}
-          loading={searchLoading}
-          disabled={isRenderingLocked}
-          onChange={setQuery}
-          onSubmit={handleSearchSubmit}
-        />
-
-        <section className={`wire-box status-alert ${statusTone}`}>
-          <p className="status-alert-title">상태 알림</p>
-          <p className="status-alert-message">{actionMessage}</p>
+        <section className="wire-box album-service-header">
+          <p className="album-service-title">Live2D Album Art</p>
         </section>
 
         <section className="wire-box album-box">
           <div className="album-frame">
-            {selectedTrack ? (
+            {live2dVideoUrl ? (
+              <video autoPlay loop muted playsInline src={live2dVideoUrl} className="album-live2d-video" />
+            ) : selectedTrack ? (
               <img src={selectedTrack.album_art_url} alt={`${selectedTrack.title} album art`} />
             ) : (
               <p className="wire-placeholder album-empty">선택한 노래 앨범아트</p>
@@ -148,15 +144,30 @@ export default function App() {
           </div>
         </section>
 
+        <section className={`wire-box status-alert ${statusTone}`}>
+          <p className="status-alert-title">상태 알림</p>
+          <p className="status-alert-message">{actionMessage}</p>
+        </section>
+
         {error && <div className="global-error">{error}</div>}
       </section>
 
-      <TrackCandidates
-        items={tracks}
-        selectedTrackId={selectedTrack?.track_id ?? null}
-        disabled={isRenderingLocked}
-        onSelect={handleSelectTrack}
-      />
+      <section className="right-stack">
+        <SearchBox
+          value={query}
+          loading={searchLoading}
+          disabled={isRenderingLocked}
+          onChange={setQuery}
+          onSubmit={handleSearchSubmit}
+        />
+
+        <TrackCandidates
+          items={tracks}
+          selectedTrackId={selectedTrack?.track_id ?? null}
+          disabled={isRenderingLocked}
+          onSelect={handleSelectTrack}
+        />
+      </section>
 
       <section className="wire-box controls-box controls-floating">
         <AudioControlBar selectedTrack={selectedTrack} />

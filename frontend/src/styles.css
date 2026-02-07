@@ -46,6 +46,13 @@ body {
   align-content: start;
 }
 
+.right-stack {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding-top: 6px;
+}
+
 .wire-box {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -151,6 +158,22 @@ body {
   background: linear-gradient(140deg, rgba(255, 234, 234, 0.92), rgba(255, 246, 246, 0.92));
 }
 
+.album-service-header {
+  min-height: 58px;
+  display: grid;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.album-service-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #24344b;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .album-box {
   min-height: 642px;
   padding: 0 0 10px;
@@ -179,6 +202,14 @@ body {
   border-radius: 12px;
 }
 
+.album-live2d-video {
+  width: min(var(--album-art-size), 100%);
+  height: min(var(--album-art-size), 100%);
+  object-fit: cover;
+  border-radius: 12px;
+  background: #000;
+}
+
 .wire-placeholder {
   margin: 0;
   text-align: center;
@@ -196,7 +227,7 @@ body {
   position: relative;
   width: min(var(--album-frame-size), calc(100% - 12px));
   margin: 10px auto 0;
-  padding: 10px 0 14px;
+  padding: 10px 0 14px 6px;
   color: #1b2434;
   border-top: 1px solid #e5e9f0;
   text-align: left;
@@ -211,14 +242,14 @@ body {
 }
 
 .album-title {
-  font-size: 2rem;
+  font-size: 1.92rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 .album-artist {
   margin-top: 6px;
-  font-size: 1.2rem;
+  font-size: 1.14rem;
   color: #5f6b7d;
 }
 
@@ -450,6 +481,10 @@ body {
     margin-bottom: 142px;
   }
 
+  .right-stack {
+    padding-top: 0;
+  }
+
   .results-box {
     min-height: 520px;
   }
@@ -464,7 +499,7 @@ body {
   }
 
   .album-title {
-    font-size: 1.45rem;
+    font-size: 1.38rem;
   }
 
   .controls-floating {
@@ -507,7 +542,7 @@ body {
   }
 
   .album-artist {
-    font-size: 1rem;
+    font-size: 0.96rem;
   }
 
   .player-top-row {
