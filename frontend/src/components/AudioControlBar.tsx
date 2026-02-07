@@ -6,6 +6,8 @@ interface AudioControlBarProps {
   selectedTrack: TrackItem | null;
 }
 
+type ControlIconName = "shuffle" | "prev" | "play" | "pause" | "next" | "screen" | "list" | "volume" | "mute";
+
 interface YTPlayer {
   destroy: () => void;
   getCurrentTime: () => number;
@@ -109,6 +111,84 @@ function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function ControlIcon({ name }: { name: ControlIconName }) {
+  switch (name) {
+    case "shuffle":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M3 6h3c1.9 0 3.7 0.9 4.8 2.4L21 21" />
+          <path d="M16 21h5v-5" />
+          <path d="M3 18h3c1.9 0 3.7-0.9 4.8-2.4L21 3" />
+          <path d="M16 3h5v5" />
+        </svg>
+      );
+    case "prev":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="4" y="5" width="2" height="14" rx="1" />
+          <path d="M18 6v12l-9-6z" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      );
+    case "pause":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="7" y="5" width="4" height="14" rx="1" />
+          <rect x="13" y="5" width="4" height="14" rx="1" />
+        </svg>
+      );
+    case "next":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="18" y="5" width="2" height="14" rx="1" />
+          <path d="M6 6v12l9-6z" />
+        </svg>
+      );
+    case "screen":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <path d="M9 20h6" />
+          <path d="M12 16v4" />
+        </svg>
+      );
+    case "list":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M8 6h13" />
+          <path d="M8 12h13" />
+          <path d="M8 18h13" />
+          <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+          <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+          <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "volume":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M4 10v4h4l5 5V5l-5 5z" fill="currentColor" stroke="none" />
+          <path d="M17 9a4 4 0 0 1 0 6" />
+          <path d="M20 7a7 7 0 0 1 0 10" />
+        </svg>
+      );
+    case "mute":
+      return (
+        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M4 10v4h4l5 5V5l-5 5z" fill="currentColor" stroke="none" />
+          <path d="m17 9 4 4" />
+          <path d="m21 9-4 4" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 export default function AudioControlBar({ selectedTrack }: AudioControlBarProps) {
@@ -284,39 +364,41 @@ export default function AudioControlBar({ selectedTrack }: AudioControlBarProps)
 
       <div className="player-top-row">
         <div className="audio-button-row">
-          <button type="button" className="icon-btn" disabled>
-            SHF
+          <button type="button" className="icon-btn" aria-label="Shuffle" disabled>
+            <ControlIcon name="shuffle" />
           </button>
-          <button type="button" className="icon-btn" disabled>
-            PREV
+          <button type="button" className="icon-btn" aria-label="Previous" disabled>
+            <ControlIcon name="prev" />
           </button>
           <button
             type="button"
             className="play-btn"
+            aria-label={isPlaying ? "Pause" : "Play"}
             onClick={handlePlayPause}
             disabled={!selectedTrack || !hasPlayableTrack || !isReady}
           >
-            {isPlaying ? "II" : "PLAY"}
+            <ControlIcon name={isPlaying ? "pause" : "play"} />
           </button>
-          <button type="button" className="icon-btn" disabled>
-            NEXT
+          <button type="button" className="icon-btn" aria-label="Next" disabled>
+            <ControlIcon name="next" />
           </button>
-          <button type="button" className="icon-btn" disabled>
-            TV
+          <button type="button" className="icon-btn" aria-label="Video view" disabled>
+            <ControlIcon name="screen" />
           </button>
         </div>
 
         <div className="audio-volume-block">
-          <button type="button" className="icon-btn" disabled>
-            LIST
+          <button type="button" className="icon-btn" aria-label="Playlist" disabled>
+            <ControlIcon name="list" />
           </button>
           <button
             type="button"
             className="icon-btn"
+            aria-label={isMuted ? "Unmute" : "Mute"}
             onClick={handleToggleMute}
             disabled={!selectedTrack || !hasPlayableTrack || !isReady}
           >
-            {isMuted ? "MUTE" : "VOL"}
+            <ControlIcon name={isMuted ? "mute" : "volume"} />
           </button>
           <input
             type="range"

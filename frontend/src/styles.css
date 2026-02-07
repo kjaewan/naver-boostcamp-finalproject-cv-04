@@ -16,7 +16,7 @@
   --left-panel-width: 534px;
   --album-art-size: 512px;
   --album-frame-size: 522px;
-  --results-panel-min-height: 620px;
+  --results-panel-min-height: 500px;
 }
 
 * {
@@ -33,7 +33,7 @@ body {
 
 .wire-shell {
   width: min(1540px, 95vw);
-  margin: 28px auto 132px;
+  margin: 28px auto 28px;
   display: grid;
   grid-template-columns: minmax(520px, var(--left-panel-width)) minmax(680px, 1fr);
   gap: 30px;
@@ -263,13 +263,8 @@ body {
   padding: 10px 12px;
 }
 
-.controls-floating {
-  position: fixed;
-  left: auto;
-  right: 18px;
-  bottom: 14px;
-  width: min(620px, 52vw);
-  z-index: 40;
+.controls-inline-box {
+  width: 100%;
 }
 
 .global-error {
@@ -407,19 +402,22 @@ body {
   border-radius: 999px;
   background: transparent;
   color: #c6d2e4;
-  font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   line-height: 1;
-  padding: 4px 6px;
-  min-height: 28px;
   cursor: pointer;
 }
 
 .play-btn {
   background: #f7fbff;
   color: #081120;
-  min-width: 54px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   font-weight: 800;
 }
 
@@ -427,6 +425,17 @@ body {
 .play-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.control-icon {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+.play-btn .control-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .audio-progress-row {
@@ -478,7 +487,7 @@ body {
 @media (max-width: 1100px) {
   .wire-shell {
     grid-template-columns: 1fr;
-    margin-bottom: 142px;
+    margin-bottom: 24px;
   }
 
   .right-stack {
@@ -486,7 +495,7 @@ body {
   }
 
   .results-box {
-    min-height: 520px;
+    min-height: 420px;
   }
 
   .panel-title {
@@ -502,12 +511,6 @@ body {
     font-size: 1.38rem;
   }
 
-  .controls-floating {
-    right: 12px;
-    left: 12px;
-    bottom: 10px;
-    width: auto;
-  }
 }
 
 @media (max-width: 720px) {

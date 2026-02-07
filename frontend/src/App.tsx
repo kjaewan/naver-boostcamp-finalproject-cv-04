@@ -167,10 +167,10 @@ export default function App() {
           disabled={isRenderingLocked}
           onSelect={handleSelectTrack}
         />
-      </section>
 
-      <section className="wire-box controls-box controls-floating">
-        <AudioControlBar selectedTrack={selectedTrack} />
+        <section className="wire-box controls-box controls-inline-box">
+          <AudioControlBar selectedTrack={selectedTrack} />
+        </section>
       </section>
     </main>
   );
