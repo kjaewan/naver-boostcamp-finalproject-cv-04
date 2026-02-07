@@ -13,6 +13,7 @@ import {
   TrackItem
 } from "./api";
 import AudioControlBar from "./components/AudioControlBar";
+import MarqueeText from "./components/MarqueeText";
 
 interface HistoryItem {
   id: string;
@@ -292,7 +293,7 @@ export default function App() {
     >
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 pb-28 pt-4 sm:px-6 lg:px-8">
         <div className="flex flex-1 flex-col gap-6 lg:flex-row lg:overflow-hidden">
-          <div className="w-full shrink-0 lg:w-auto">
+          <div className="w-full shrink-0 lg:w-[560px]">
             <div
               className={`relative flex flex-col overflow-hidden rounded-3xl border p-4 transition-colors duration-500 sm:p-6 ${theme.cardBg} ${theme.cardBorder} ${theme.shadow}`}
             >
@@ -353,13 +354,19 @@ export default function App() {
                 )}
               </div>
 
-              <div className="mt-6">
-                <h1 className={`truncate text-2xl font-bold sm:text-3xl ${theme.text}`}>
-                  {selectedTrack?.title ?? "노래를 선택하세요"}
-                </h1>
-                <p className={`text-base font-medium sm:text-lg ${theme.subText}`}>
-                  {selectedTrack?.artist ?? "아티스트"}
-                </p>
+              <div className="mx-auto mt-6 w-[512px] max-w-[80vw]">
+                <MarqueeText
+                  text={selectedTrack?.title ?? "노래를 선택하세요"}
+                  className={`text-2xl font-bold sm:text-3xl ${theme.text}`}
+                  containerClassName="max-w-full h-10 sm:h-12 flex items-center"
+                  pauseOnHover={false}
+                />
+                <MarqueeText
+                  text={selectedTrack?.artist ?? "아티스트"}
+                  className={`text-base font-medium sm:text-lg ${theme.subText}`}
+                  containerClassName="max-w-full h-7 sm:h-8 flex items-center"
+                  pauseOnHover={false}
+                />
               </div>
             </div>
           </div>
@@ -452,8 +459,18 @@ export default function App() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <h4 className={`truncate font-bold transition-colors group-hover:text-blue-500 ${theme.text}`}>{item.title}</h4>
-                          <p className={`truncate text-sm ${theme.subText}`}>{item.artist}</p>
+                          <MarqueeText
+                            text={item.title}
+                            className={`font-bold transition-colors group-hover:text-blue-500 ${theme.text}`}
+                            containerClassName="max-w-full"
+                            pauseOnHover={false}
+                          />
+                          <MarqueeText
+                            text={item.artist}
+                            className={`text-sm ${theme.subText}`}
+                            containerClassName="max-w-full"
+                            pauseOnHover={false}
+                          />
                         </div>
 
                         <div className="min-w-[80px] text-right">
@@ -516,13 +533,13 @@ export default function App() {
                             />
                           )}
                         </div>
-                        <span
-                          className={`truncate text-sm ${
+                        <MarqueeText
+                          text={`${history.title} - ${history.artist}`}
+                          className={`text-sm ${
                             isDarkMode ? "text-gray-300 group-hover:text-white" : "text-slate-600 group-hover:text-slate-900"
                           }`}
-                        >
-                          {history.title} - {history.artist}
-                        </span>
+                          containerClassName="max-w-full"
+                        />
                       </div>
                       <span className={`whitespace-nowrap font-mono text-xs ${theme.subText}`}>
                         {formatRelativeTime(history.updatedAt)}
@@ -558,8 +575,8 @@ export default function App() {
               )}
             </div>
             <div className="min-w-0">
-              <p className={`truncate text-sm font-bold ${theme.text}`}>{selectedTrack?.title ?? "노래를 선택하세요"}</p>
-              <p className={`truncate text-xs ${theme.subText}`}>{selectedTrack?.artist ?? "아티스트"}</p>
+              <MarqueeText text={selectedTrack?.title ?? "노래를 선택하세요"} className={`text-sm font-bold ${theme.text}`} />
+              <MarqueeText text={selectedTrack?.artist ?? "아티스트"} className={`text-xs ${theme.subText}`} />
             </div>
           </div>
 
