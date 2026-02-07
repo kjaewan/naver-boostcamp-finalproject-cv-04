@@ -34,11 +34,22 @@ class Storage:
         render_preset: str,
         album_identity: str | None = None,
     ) -> str:
+        # Keep album_identity in signature for backward compatibility with callers.
+        _ = album_identity
         digest = hashlib.sha256()
-        if album_identity:
-            digest.update(f"album:{album_identity}".encode("utf-8"))
-        else:
-            digest.update(album_art_bytes)
+        digest.update(album_art_bytes)
+        digest.update(workflow_version.encode("utf-8"))
+        digest.update(render_preset.encode("utf-8"))
+        return digest.hexdigest()
+
+    @staticmethod
+    def compute_album_identity_cache_key(
+        album_identity: str,
+        workflow_version: str,
+        render_preset: str,
+    ) -> str:
+        digest = hashlib.sha256()
+        digest.update(f"album:{album_identity}".encode("utf-8"))
         digest.update(workflow_version.encode("utf-8"))
         digest.update(render_preset.encode("utf-8"))
         return digest.hexdigest()

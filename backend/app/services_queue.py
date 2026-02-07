@@ -108,14 +108,25 @@ class RenderQueueService:
 
     async def create_job(self, req: RenderCreateRequest) -> RenderCreateResponse:
         album_bytes, ext = await self.storage.download_album_art(req.album_art_url)
-        cache_key = self.storage.compute_cache_key(
+        content_cache_key = self.storage.compute_cache_key(
             album_bytes,
             self.settings.workflow_version,
             self.settings.render_preset,
-            album_identity=req.album_id,
         )
+        cache_key_candidates = [content_cache_key]
+        if req.album_id:
+            legacy_album_cache_key = self.storage.compute_album_identity_cache_key(
+                req.album_id,
+                self.settings.workflow_version,
+                self.settings.render_preset,
+            )
+            if legacy_album_cache_key != content_cache_key:
+                cache_key_candidates.append(legacy_album_cache_key)
 
-        if self.storage.cache_exists(cache_key):
+        cached_key = next((candidate for candidate in cache_key_candidates if self.storage.cache_exists(candidate)), None)
+        if cached_key:
+            cache_key = cached_key
+
             job_id = str(uuid.uuid4())
             video_url, thumb_url = self.storage.result_urls(cache_key)
             now = self._now()
@@ -144,6 +155,7 @@ class RenderQueueService:
             self.storage.write_job(job_id, asdict(job))
             return RenderCreateResponse(job_id=job_id, status="completed", cache_hit=True, poll_url=f"/api/v1/renders/{job_id}")
 
+        cache_key = content_cache_key
         image_filename = self.storage.persist_album_art(album_bytes, cache_key, ext)
 
         job_id = str(uuid.uuid4())

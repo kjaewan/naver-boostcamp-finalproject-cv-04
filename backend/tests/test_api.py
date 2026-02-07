@@ -57,6 +57,60 @@ def test_cache_hit_path(tmp_path: Path, monkeypatch) -> None:
     assert data["status"] == "completed"
 
 
+def test_cache_hit_uses_legacy_album_identity_cache_key(monkeypatch) -> None:
+    album_id = "album-123"
+    image_bytes = b"img"
+
+    async def fake_download(_url: str, timeout_sec: int = 30):  # noqa: ARG001
+        return (image_bytes, ".jpg")
+
+    content_key = queue_service.storage.compute_cache_key(
+        image_bytes,
+        queue_service.settings.workflow_version,
+        queue_service.settings.render_preset,
+    )
+    legacy_key = queue_service.storage.compute_album_identity_cache_key(
+        album_id,
+        queue_service.settings.workflow_version,
+        queue_service.settings.render_preset,
+    )
+    assert content_key != legacy_key
+
+    def fake_cache_exists(key: str) -> bool:
+        return key == legacy_key
+
+    def fail_persist(*_args, **_kwargs) -> str:
+        raise AssertionError("persist_album_art should not be called for cache hit")
+
+    monkeypatch.setattr(queue_service.storage, "download_album_art", fake_download)
+    monkeypatch.setattr(queue_service.storage, "cache_exists", fake_cache_exists)
+    monkeypatch.setattr(
+        queue_service.storage,
+        "result_urls",
+        lambda key: (f"/static/renders/{key}/video.mp4", f"/static/renders/{key}/thumb.jpg"),
+    )
+    monkeypatch.setattr(queue_service.storage, "persist_album_art", fail_persist)
+
+    payload = {
+        "track_id": "2",
+        "album_id": album_id,
+        "title": "Another Song",
+        "artist": "Artist",
+        "album_art_url": "https://example.com/a.jpg",
+        "youtube_video_id": None,
+    }
+
+    response = client.post("/api/v1/renders", json=payload)
+    assert response.status_code == 202
+    data = response.json()
+    assert data["cache_hit"] is True
+    assert data["status"] == "completed"
+
+    status_response = client.get(f"/api/v1/renders/{data['job_id']}")
+    assert status_response.status_code == 200
+    assert status_response.json()["result"]["cache_key"] == legacy_key
+
+
 def test_render_history_completed_only(monkeypatch) -> None:
     monkeypatch.setattr(
         queue_service,
