@@ -17,6 +17,7 @@ dist/
 # Generated Live2D assets (do not commit runtime outputs)
 data/inputs/
 data/renders/
+data/jobs/*.json
 live2d/data/inputs/
 live2d/data/renders/
 
