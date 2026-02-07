@@ -1,12 +1,12 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 
 import { TrackItem } from "../api";
 
 interface AudioControlBarProps {
   selectedTrack: TrackItem | null;
+  isDarkMode: boolean;
 }
-
-type ControlIconName = "shuffle" | "prev" | "play" | "pause" | "next" | "screen" | "list" | "volume" | "mute";
 
 interface YTPlayer {
   destroy: () => void;
@@ -113,91 +113,15 @@ function formatSeconds(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function ControlIcon({ name }: { name: ControlIconName }) {
-  switch (name) {
-    case "shuffle":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M3 6h3c1.9 0 3.7 0.9 4.8 2.4L21 21" />
-          <path d="M16 21h5v-5" />
-          <path d="M3 18h3c1.9 0 3.7-0.9 4.8-2.4L21 3" />
-          <path d="M16 3h5v5" />
-        </svg>
-      );
-    case "prev":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="4" y="5" width="2" height="14" rx="1" />
-          <path d="M18 6v12l-9-6z" />
-        </svg>
-      );
-    case "play":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      );
-    case "pause":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="7" y="5" width="4" height="14" rx="1" />
-          <rect x="13" y="5" width="4" height="14" rx="1" />
-        </svg>
-      );
-    case "next":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="18" y="5" width="2" height="14" rx="1" />
-          <path d="M6 6v12l9-6z" />
-        </svg>
-      );
-    case "screen":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="12" rx="2" />
-          <path d="M9 20h6" />
-          <path d="M12 16v4" />
-        </svg>
-      );
-    case "list":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M8 6h13" />
-          <path d="M8 12h13" />
-          <path d="M8 18h13" />
-          <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
-          <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
-          <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case "volume":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M4 10v4h4l5 5V5l-5 5z" fill="currentColor" stroke="none" />
-          <path d="M17 9a4 4 0 0 1 0 6" />
-          <path d="M20 7a7 7 0 0 1 0 10" />
-        </svg>
-      );
-    case "mute":
-      return (
-        <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M4 10v4h4l5 5V5l-5 5z" fill="currentColor" stroke="none" />
-          <path d="m17 9 4 4" />
-          <path d="m21 9-4 4" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-export default function AudioControlBar({ selectedTrack }: AudioControlBarProps) {
+export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioControlBarProps) {
   const playerHostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const currentVideoIdRef = useRef<string | null>(null);
+  const repeatingRef = useRef(true);
 
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRepeating, setIsRepeating] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(80);
@@ -205,6 +129,10 @@ export default function AudioControlBar({ selectedTrack }: AudioControlBarProps)
 
   const videoId = useMemo(() => extractVideoId(selectedTrack), [selectedTrack]);
   const hasPlayableTrack = Boolean(videoId);
+
+  useEffect(() => {
+    repeatingRef.current = isRepeating;
+  }, [isRepeating]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,8 +177,13 @@ export default function AudioControlBar({ selectedTrack }: AudioControlBarProps)
                 setCurrentTime(event.target.getCurrentTime() || 0);
               }
               if (event.data === YT.PlayerState.ENDED) {
-                event.target.seekTo(0, true);
-                event.target.playVideo();
+                if (repeatingRef.current) {
+                  event.target.seekTo(0, true);
+                  event.target.playVideo();
+                } else {
+                  setIsPlaying(false);
+                  setCurrentTime(0);
+                }
               }
             }
           }
@@ -354,74 +287,96 @@ export default function AudioControlBar({ selectedTrack }: AudioControlBarProps)
     }
   };
 
+  const controlDisabled = !selectedTrack || !hasPlayableTrack || !isReady;
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <section className="audio-controls-inline" aria-label="Audio controls">
-      <div className="yt-audio-host" aria-hidden="true">
+    <section className="flex w-full items-center gap-4" aria-label="Audio controls">
+      <div className="sr-only" aria-hidden="true">
         <div ref={playerHostRef} />
       </div>
 
-      <div className="player-top-row">
-        <div className="audio-button-row">
-          <button type="button" className="icon-btn" aria-label="Shuffle" disabled>
-            <ControlIcon name="shuffle" />
-          </button>
-          <button type="button" className="icon-btn" aria-label="Previous" disabled>
-            <ControlIcon name="prev" />
-          </button>
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
+        <div className="mb-2 flex items-center gap-4 sm:gap-6">
           <button
             type="button"
-            className="play-btn"
-            aria-label={isPlaying ? "Pause" : "Play"}
-            onClick={handlePlayPause}
-            disabled={!selectedTrack || !hasPlayableTrack || !isReady}
+            className={`transition-colors ${isDarkMode ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
+            disabled
+            aria-label="Previous"
           >
-            <ControlIcon name={isPlaying ? "pause" : "play"} />
+            <SkipBack className="h-5 w-5" />
           </button>
-          <button type="button" className="icon-btn" aria-label="Next" disabled>
-            <ControlIcon name="next" />
+
+          <button
+            type="button"
+            className={`flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 ${
+              isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"
+            }`}
+            onClick={handlePlayPause}
+            disabled={controlDisabled}
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
           </button>
-          <button type="button" className="icon-btn" aria-label="Video view" disabled>
-            <ControlIcon name="screen" />
+
+          <button
+            type="button"
+            className={`transition-colors ${isDarkMode ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
+            disabled
+            aria-label="Next"
+          >
+            <SkipForward className="h-5 w-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsRepeating((prev) => !prev)}
+            className={`transition-colors ${isRepeating ? "text-blue-500" : isDarkMode ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
+            disabled={controlDisabled}
+            aria-label="Repeat"
+            title="Repeat"
+          >
+            <Repeat className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="audio-volume-block">
-          <button type="button" className="icon-btn" aria-label="Playlist" disabled>
-            <ControlIcon name="list" />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={isMuted ? "Unmute" : "Mute"}
-            onClick={handleToggleMute}
-            disabled={!selectedTrack || !hasPlayableTrack || !isReady}
-          >
-            <ControlIcon name={isMuted ? "mute" : "volume"} />
-          </button>
+        <div className={`flex w-full items-center gap-3 font-mono text-xs ${isDarkMode ? "text-gray-400" : "text-slate-500"}`}>
+          <span>{formatSeconds(currentTime)}</span>
           <input
             type="range"
             min={0}
             max={100}
-            value={isMuted ? 0 : volume}
-            onChange={handleVolumeChange}
-            disabled={!hasPlayableTrack || !isReady}
+            step={0.1}
+            value={progress}
+            onChange={handleSeek}
+            disabled={controlDisabled || duration <= 0}
+            className="h-1 w-full cursor-pointer accent-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Seek"
           />
+          <span>{formatSeconds(duration)}</span>
         </div>
       </div>
 
-      <div className="audio-progress-row">
-        <span className="time">{formatSeconds(currentTime)}</span>
+      <div className="hidden items-center gap-2 sm:flex">
+        <button
+          type="button"
+          onClick={handleToggleMute}
+          className={`transition-colors ${isDarkMode ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
+          disabled={controlDisabled}
+          aria-label={isMuted ? "Unmute" : "Mute"}
+        >
+          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
         <input
           type="range"
           min={0}
           max={100}
-          value={progress}
-          onChange={handleSeek}
-          disabled={!hasPlayableTrack || !isReady || duration <= 0}
+          value={isMuted ? 0 : volume}
+          onChange={handleVolumeChange}
+          disabled={controlDisabled}
+          className="h-1 w-24 cursor-pointer accent-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Volume"
         />
-        <span className="time">{formatSeconds(duration)}</span>
       </div>
     </section>
   );
