@@ -31,7 +31,7 @@ function formatRelativeTime(createdAt: number): string {
 
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [query, setQuery] = useState("one ok rock Nasty");
+  const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<TrackItem | null>(null);
   const [job, setJob] = useState<RenderStatusResponse | null>(null);
@@ -246,10 +246,10 @@ export default function App() {
 
               <div className="mt-6">
                 <h1 className={`truncate text-2xl font-bold sm:text-3xl ${theme.text}`}>
-                  {selectedTrack?.title ?? "Do I Wanna Know?"}
+                  {selectedTrack?.title ?? "노래를 선택하세요"}
                 </h1>
                 <p className={`text-base font-medium sm:text-lg ${theme.subText}`}>
-                  {selectedTrack?.artist ?? "Arctic Monkeys"}
+                  {selectedTrack?.artist ?? "아티스트"}
                 </p>
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function App() {
       <footer
         className={`fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur-xl transition-colors duration-500 ${theme.playerBg}`}
       >
-        <div className="mx-auto flex h-24 w-full max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="relative mx-auto flex h-24 w-full max-w-[1600px] items-center px-4 sm:px-6 lg:px-8">
           <div className="hidden min-w-0 flex-1 items-center gap-3 md:flex">
             <div className={`h-12 w-12 shrink-0 rounded-md ${isDarkMode ? "bg-gray-800" : "bg-slate-200"}`}>
               {selectedTrack && (
@@ -431,8 +431,10 @@ export default function App() {
             </div>
           </div>
 
-          <div className="min-w-0 flex-[2]">
-            <AudioControlBar selectedTrack={selectedTrack} isDarkMode={isDarkMode} />
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 px-4 sm:px-6 lg:px-8">
+            <div className="pointer-events-auto">
+              <AudioControlBar selectedTrack={selectedTrack} isDarkMode={isDarkMode} />
+            </div>
           </div>
         </div>
       </footer>

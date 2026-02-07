@@ -291,7 +291,7 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <section className="flex w-full items-center gap-4" aria-label="Audio controls">
+    <section className="relative flex w-full items-center" aria-label="Audio controls">
       <div className="sr-only" aria-hidden="true">
         <div ref={playerHostRef} />
       </div>
@@ -357,7 +357,7 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
         </div>
       </div>
 
-      <div className="hidden items-center gap-2 sm:flex">
+      <div className="absolute right-0 hidden items-center gap-2 sm:flex">
         <button
           type="button"
           onClick={handleToggleMute}
