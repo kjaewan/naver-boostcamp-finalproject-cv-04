@@ -92,6 +92,11 @@ class Storage:
         path = self.settings.jobs_dir / f"{job_id}.json"
         path.write_text(json.dumps(data, ensure_ascii=True, indent=2), encoding="utf-8")
 
+    def delete_job(self, job_id: str) -> None:
+        path = self.settings.jobs_dir / f"{job_id}.json"
+        if path.exists():
+            path.unlink()
+
     def load_jobs(self) -> dict[str, dict[str, Any]]:
         jobs: dict[str, dict[str, Any]] = {}
         for path in self.settings.jobs_dir.glob("*.json"):

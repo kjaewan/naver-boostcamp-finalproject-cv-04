@@ -44,6 +44,10 @@ class RenderTrackInfo(BaseModel):
     track_id: str
     title: str
     artist: str
+    album_id: Optional[str] = None
+    album_art_url: Optional[str] = None
+    youtube_video_id: Optional[str] = None
+    youtube_embed_url: Optional[str] = None
 
 
 class RenderResult(BaseModel):
@@ -67,3 +71,20 @@ class RenderStatusResponse(BaseModel):
     track: RenderTrackInfo
     result: RenderResult
     error: RenderError
+
+
+class RenderHistoryItem(BaseModel):
+    job_id: str
+    status: JobStatus
+    track: RenderTrackInfo
+    result: RenderResult
+    created_at: str
+    updated_at: str
+
+
+class RenderHistoryResponse(BaseModel):
+    items: list[RenderHistoryItem]
+
+
+class RenderHistoryClearResponse(BaseModel):
+    deleted_count: int

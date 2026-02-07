@@ -1,9 +1,11 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { History, ListMusic, Lock, Moon, Search, Sun } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { History, ListMusic, Lock, Moon, Search, Sun, Trash2 } from "lucide-react";
 
 import {
   absUrl,
+  clearRenderHistory,
   createRenderJob,
+  getRenderHistory,
   getRenderJob,
   RenderCreateRequest,
   RenderStatusResponse,
@@ -14,13 +16,23 @@ import AudioControlBar from "./components/AudioControlBar";
 
 interface HistoryItem {
   id: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  trackId: string;
+  albumId: string | null;
   title: string;
   artist: string;
-  createdAt: number;
+  albumArtUrl: string | null;
+  youtubeVideoId: string | null;
+  youtubeEmbedUrl: string | null;
+  videoUrl: string | null;
+  thumbnailUrl: string | null;
+  updatedAt: string;
 }
 
-function formatRelativeTime(createdAt: number): string {
-  const diffSec = Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+function formatRelativeTime(updatedAt: string): string {
+  const parsed = Date.parse(updatedAt);
+  if (Number.isNaN(parsed)) return "-";
+  const diffSec = Math.max(0, Math.floor((Date.now() - parsed) / 1000));
   if (diffSec < 60) return "방금 전";
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `${diffMin}분 전`;
@@ -41,7 +53,7 @@ export default function App() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
 
   const createRequestInFlightRef = useRef(false);
-  const lastCompletedJobRef = useRef<string | null>(null);
+  const sessionStartedAtRef = useRef<number>(Date.now());
 
   const isGenerating = actionLoading || job?.status === "queued" || job?.status === "processing";
   const isRenderingLocked = isGenerating;
@@ -58,6 +70,35 @@ export default function App() {
     }
     return 0;
   }, [actionLoading, job]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const response = await getRenderHistory(6, false);
+      setHistoryItems(
+        response.items
+          .filter((item) => {
+            const updatedAtMs = Date.parse(item.updated_at);
+            return Number.isFinite(updatedAtMs) && updatedAtMs >= sessionStartedAtRef.current;
+          })
+          .map((item) => ({
+            id: item.job_id,
+            status: item.status,
+            trackId: item.track.track_id,
+            albumId: item.track.album_id ?? null,
+            title: item.track.title,
+            artist: item.track.artist,
+            albumArtUrl: absUrl(item.track.album_art_url ?? null),
+            youtubeVideoId: item.track.youtube_video_id ?? null,
+            youtubeEmbedUrl: item.track.youtube_embed_url ?? null,
+            videoUrl: absUrl(item.result.video_url),
+            thumbnailUrl: absUrl(item.result.thumbnail_url),
+            updatedAt: item.updated_at
+          }))
+      );
+    } catch {
+      // Keep current UI state when history fetch fails.
+    }
+  }, []);
 
   useEffect(() => {
     if (!job) return;
@@ -76,27 +117,9 @@ export default function App() {
   }, [job]);
 
   useEffect(() => {
-    if (!job || job.status !== "completed") {
-      return;
-    }
-    if (lastCompletedJobRef.current === job.job_id) {
-      return;
-    }
-
-    lastCompletedJobRef.current = job.job_id;
-    setHistoryItems((prev) => {
-      const next = [
-        {
-          id: job.job_id,
-          title: job.track.title,
-          artist: job.track.artist,
-          createdAt: Date.now()
-        },
-        ...prev.filter((item) => item.id !== job.job_id)
-      ];
-      return next.slice(0, 6);
-    });
-  }, [job]);
+    if (!job || job.status !== "completed") return;
+    void loadHistory();
+  }, [job?.job_id, job?.status, loadHistory]);
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -161,6 +184,63 @@ export default function App() {
 
     setSelectedTrack(track);
     void requestRenderForTrack(track);
+  };
+
+  const handleSelectHistory = async (item: HistoryItem) => {
+    const restoredTrack: TrackItem = {
+      track_id: item.trackId,
+      album_id: item.albumId,
+      title: item.title,
+      artist: item.artist,
+      album_art_url: item.albumArtUrl ?? "",
+      youtube_video_id: item.youtubeVideoId,
+      youtube_embed_url: item.youtubeEmbedUrl,
+      score: 1
+    };
+    setSelectedTrack(restoredTrack);
+
+    try {
+      const latest = await getRenderJob(item.id);
+      setJob(latest);
+    } catch {
+      if (item.status === "completed") {
+        setJob({
+          job_id: item.id,
+          status: "completed",
+          phase: "done",
+          progress: 100,
+          queue_position: 0,
+          estimated_wait_sec: 0,
+          track: {
+            track_id: item.trackId,
+            title: item.title,
+            artist: item.artist,
+            album_id: item.albumId,
+            album_art_url: item.albumArtUrl,
+            youtube_video_id: item.youtubeVideoId,
+            youtube_embed_url: item.youtubeEmbedUrl
+          },
+          result: {
+            video_url: item.videoUrl,
+            thumbnail_url: item.thumbnailUrl,
+            cache_key: null
+          },
+          error: {
+            code: null,
+            message: null
+          }
+        });
+      }
+    }
+  };
+
+  const handleClearHistory = async () => {
+    try {
+      await clearRenderHistory(false);
+      setHistoryItems([]);
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
 
   const live2dVideoUrl = job?.status === "completed" ? absUrl(job.result.video_url) : null;
@@ -363,27 +443,47 @@ export default function App() {
             <section
               className={`flex h-[180px] flex-col rounded-2xl border p-5 transition-all duration-500 ${theme.cardBg} ${theme.cardBorder} ${theme.shadow}`}
             >
-              <h3 className={`mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide ${theme.subText}`}>
-                <History className="h-4 w-4" />
-                Recent History
-              </h3>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wide ${theme.subText}`}>
+                  <History className="h-4 w-4" />
+                  Recent History
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className={`rounded-md p-1 transition-colors ${isDarkMode ? "text-gray-400 hover:bg-white/10 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
+                  aria-label="Clear recent history"
+                  title="Recent History 삭제"
+                  disabled={historyItems.length === 0}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
               {historyItems.length === 0 ? (
                 <p className={`my-auto text-center text-sm ${theme.subText}`}>아직 생성 기록이 없습니다.</p>
               ) : (
                 <div className="flex-1 space-y-2 overflow-y-auto pr-1">
                   {historyItems.map((history) => (
-                    <div
+                    <button
+                      type="button"
                       key={history.id}
-                      className={`group flex cursor-default items-center justify-between rounded-lg p-2 transition-colors ${
+                      onClick={() => void handleSelectHistory(history)}
+                      className={`group flex w-full items-center justify-between rounded-lg p-2 text-left transition-colors ${
                         isDarkMode ? "hover:bg-white/5" : "hover:bg-slate-100"
                       }`}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <div
-                          className={`h-8 w-8 shrink-0 rounded-md transition-colors ${
-                            isDarkMode ? "bg-gray-700 group-hover:bg-blue-500/20" : "bg-slate-200 group-hover:bg-blue-100"
-                          }`}
-                        />
+                        <div className={`h-8 w-8 shrink-0 overflow-hidden rounded-md ${isDarkMode ? "bg-gray-700" : "bg-slate-200"}`}>
+                          {history.albumArtUrl ? (
+                            <img src={history.albumArtUrl} alt={`${history.title} album art`} className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <div
+                              className={`h-full w-full transition-colors ${
+                                isDarkMode ? "bg-gray-700 group-hover:bg-blue-500/20" : "bg-slate-200 group-hover:bg-blue-100"
+                              }`}
+                            />
+                          )}
+                        </div>
                         <span
                           className={`truncate text-sm ${
                             isDarkMode ? "text-gray-300 group-hover:text-white" : "text-slate-600 group-hover:text-slate-900"
@@ -393,9 +493,9 @@ export default function App() {
                         </span>
                       </div>
                       <span className={`whitespace-nowrap font-mono text-xs ${theme.subText}`}>
-                        {formatRelativeTime(history.createdAt)}
+                        {formatRelativeTime(history.updatedAt)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

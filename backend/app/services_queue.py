@@ -120,7 +120,14 @@ class RenderQueueService:
                 status="completed",
                 phase="done",
                 progress=100,
-                track={"track_id": req.track_id, "title": req.title, "artist": req.artist},
+                track={
+                    "track_id": req.track_id,
+                    "title": req.title,
+                    "artist": req.artist,
+                    "album_id": req.album_id,
+                    "album_art_url": req.album_art_url,
+                    "youtube_video_id": req.youtube_video_id,
+                },
                 result={"video_url": video_url, "thumbnail_url": thumb_url, "cache_key": cache_key},
                 error={"code": None, "message": None},
                 cache_key=cache_key,
@@ -142,7 +149,14 @@ class RenderQueueService:
             status="queued",
             phase="queued",
             progress=PHASE_PROGRESS["queued"],
-            track={"track_id": req.track_id, "title": req.title, "artist": req.artist},
+            track={
+                "track_id": req.track_id,
+                "title": req.title,
+                "artist": req.artist,
+                "album_id": req.album_id,
+                "album_art_url": req.album_art_url,
+                "youtube_video_id": req.youtube_video_id,
+            },
             result={"video_url": None, "thumbnail_url": None, "cache_key": cache_key},
             error={"code": None, "message": None},
             cache_key=cache_key,
@@ -170,6 +184,42 @@ class RenderQueueService:
             estimated_wait = max(0, queue_position) * self.settings.estimated_job_sec
 
         return job.to_status(queue_position=queue_position, estimated_wait_sec=estimated_wait)
+
+    async def list_history(self, limit: int = 6, include_failed: bool = False) -> list[JobRecord]:
+        async with self.lock:
+            records = list(self.jobs.values())
+
+        if include_failed:
+            filtered = [record for record in records if record.status in {"completed", "failed"}]
+        else:
+            filtered = [record for record in records if record.status == "completed"]
+
+        def sort_key(record: JobRecord) -> tuple[float, float]:
+            return (self._parse_iso_timestamp(record.updated_at), self._parse_iso_timestamp(record.created_at))
+
+        filtered.sort(key=sort_key, reverse=True)
+        return filtered[:limit]
+
+    async def clear_history(self, include_failed: bool = False) -> int:
+        async with self.lock:
+            target_ids = [
+                job_id
+                for job_id, record in self.jobs.items()
+                if record.status == "completed" or (include_failed and record.status == "failed")
+            ]
+            for job_id in target_ids:
+                self.jobs.pop(job_id, None)
+                self.storage.delete_job(job_id)
+        return len(target_ids)
+
+    @staticmethod
+    def _parse_iso_timestamp(value: str | None) -> float:
+        if not value:
+            return 0.0
+        try:
+            return datetime.fromisoformat(value).timestamp()
+        except ValueError:
+            return 0.0
 
     def _queue_position(self, job: JobRecord) -> int:
         if job.status == "processing":
