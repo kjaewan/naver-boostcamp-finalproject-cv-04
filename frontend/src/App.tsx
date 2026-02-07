@@ -208,6 +208,10 @@ export default function App() {
   };
 
   const handleSelectHistory = async (item: HistoryItem) => {
+    if (isRenderingLocked || createRequestInFlightRef.current) {
+      return;
+    }
+
     const restoredTrack: TrackItem = {
       track_id: item.trackId,
       album_id: item.albumId,
@@ -256,6 +260,10 @@ export default function App() {
   };
 
   const handleClearHistory = async () => {
+    if (isRenderingLocked) {
+      return;
+    }
+
     try {
       await clearRenderHistory(false);
       setHistoryItems([]);
@@ -462,7 +470,9 @@ export default function App() {
             </section>
 
             <section
-              className={`flex h-[180px] flex-col rounded-2xl border p-5 transition-all duration-500 ${theme.cardBg} ${theme.cardBorder} ${theme.shadow}`}
+              className={`flex h-[180px] flex-col rounded-2xl border p-5 transition-all duration-500 ${theme.cardBg} ${theme.cardBorder} ${theme.shadow} ${
+                isGenerating ? "pointer-events-none select-none grayscale opacity-40" : ""
+              }`}
             >
               <div className="mb-3 flex items-center justify-between">
                 <h3 className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wide ${theme.subText}`}>
@@ -475,7 +485,7 @@ export default function App() {
                   className={`rounded-md p-1 transition-colors ${isDarkMode ? "text-gray-400 hover:bg-white/10 hover:text-white" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"} disabled:cursor-not-allowed disabled:opacity-50`}
                   aria-label="Clear recent history"
                   title="Recent History 삭제"
-                  disabled={historyItems.length === 0}
+                  disabled={historyItems.length === 0 || isRenderingLocked}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -489,9 +499,10 @@ export default function App() {
                       type="button"
                       key={history.id}
                       onClick={() => void handleSelectHistory(history)}
+                      disabled={isRenderingLocked}
                       className={`group flex w-full items-center justify-between rounded-lg p-2 text-left transition-colors ${
                         isDarkMode ? "hover:bg-white/5" : "hover:bg-slate-100"
-                      }`}
+                      } ${isRenderingLocked ? "cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div className={`h-8 w-8 shrink-0 overflow-hidden rounded-md ${isDarkMode ? "bg-gray-700" : "bg-slate-200"}`}>

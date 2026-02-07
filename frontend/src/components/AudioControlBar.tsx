@@ -270,10 +270,15 @@ export default function AudioControlBar({ selectedTrack, isDarkMode }: AudioCont
     const nextVolume = Number(event.target.value);
     setVolume(nextVolume);
     playerRef.current.setVolume(nextVolume);
+    if (nextVolume <= 0) {
+      playerRef.current.mute();
+      setIsMuted(true);
+      return;
+    }
     if (playerRef.current.isMuted()) {
       playerRef.current.unMute();
-      setIsMuted(false);
     }
+    setIsMuted(false);
   };
 
   const handleToggleMute = () => {
