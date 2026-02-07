@@ -50,7 +50,7 @@ body {
   display: grid;
   gap: 12px;
   align-content: start;
-  padding-top: 6px;
+  padding-top: 0;
 }
 
 .wire-box {
