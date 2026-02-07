@@ -30,7 +30,7 @@ body {
 
 .app-shell {
   width: min(1180px, 92vw);
-  margin: 32px auto 120px;
+  margin: 32px auto 200px;
   display: grid;
   gap: 18px;
 }
@@ -177,29 +177,6 @@ body {
   font-size: 0.86rem;
 }
 
-.player-wrap {
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #111;
-}
-
-.player-wrap iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.player-wrap.compact {
-  padding-top: 0;
-  height: 68px;
-  border-radius: 10px;
-}
-
 .action-panel {
   display: flex;
   align-items: center;
@@ -297,25 +274,145 @@ body {
   font-size: 0.9rem;
 }
 
-.mini-player-dock {
+.audio-control-dock {
   position: fixed;
   left: 50%;
-  bottom: 10px;
+  bottom: 12px;
   transform: translateX(-50%);
-  width: min(360px, 92vw);
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(19, 27, 44, 0.24);
-  z-index: 20;
+  width: min(1160px, 96vw);
+  border-radius: 14px;
+  border: 1px solid #1e1e1e;
+  background: #0b0b0b;
+  color: #f3f4f6;
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) minmax(320px, 1fr) minmax(150px, 240px);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  z-index: 30;
 }
 
-.mini-player-text {
+.yt-audio-host {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+.audio-track-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.audio-track-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #27272a;
+  flex: 0 0 auto;
+}
+
+.audio-track-art.placeholder {
+  background: #18181b;
+}
+
+.audio-track-copy {
+  min-width: 0;
+}
+
+.audio-track-title {
   margin: 0;
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-track-artist {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-main-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.audio-button-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.icon-btn,
+.play-btn {
+  border: 1px solid #303036;
+  border-radius: 999px;
+  background: #131316;
+  color: #f4f4f5;
+  font: inherit;
+  font-size: 0.76rem;
+  line-height: 1;
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+.play-btn {
+  background: #f4f4f5;
+  color: #0b0b0b;
+  border-color: #f4f4f5;
+  font-weight: 700;
+}
+
+.icon-btn.active {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.icon-btn:disabled,
+.play-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.audio-progress-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-progress-row input,
+.audio-volume-block input {
+  width: 100%;
+  accent-color: #f4f4f5;
+}
+
+.time {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.74rem;
+  color: #d4d4d8;
+  text-align: center;
+}
+
+.audio-volume-block {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
 }
 
 @media (max-width: 900px) {
@@ -334,5 +431,25 @@ body {
 
   .result-video {
     min-height: 240px;
+  }
+
+  .audio-control-dock {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .audio-main-controls {
+    order: 3;
+  }
+
+  .audio-button-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .audio-volume-block {
+    grid-template-columns: auto minmax(100px, 1fr);
+    justify-content: flex-start;
   }
 }

@@ -8,7 +8,7 @@ import {
   searchMusic,
   TrackItem
 } from "./api";
-import PlayerPanel from "./components/PlayerPanel";
+import AudioControlBar from "./components/AudioControlBar";
 import RenderResult from "./components/RenderResult";
 import SearchBox from "./components/SearchBox";
 import TrackCandidates from "./components/TrackCandidates";
@@ -128,7 +128,7 @@ export default function App() {
 
       {error && <div className="global-error">{error}</div>}
 
-      <PlayerPanel embedUrl={selectedTrack?.youtube_embed_url ?? null} />
+      <AudioControlBar tracks={tracks} selectedTrack={selectedTrack} onSelect={setSelectedTrack} />
     </main>
   );
 }
