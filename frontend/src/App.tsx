@@ -51,6 +51,7 @@ export default function App() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [displayProgress, setDisplayProgress] = useState(0);
 
   const createRequestInFlightRef = useRef(false);
   const sessionStartedAtRef = useRef<number>(Date.now());
@@ -58,7 +59,7 @@ export default function App() {
   const isGenerating = actionLoading || job?.status === "queued" || job?.status === "processing";
   const isRenderingLocked = isGenerating;
 
-  const progress = useMemo(() => {
+  const progressTarget = useMemo(() => {
     if (job?.status === "queued" || job?.status === "processing") {
       return Math.max(5, Math.min(99, job.progress));
     }
@@ -70,6 +71,10 @@ export default function App() {
     }
     return 0;
   }, [actionLoading, job]);
+
+  useEffect(() => {
+    setDisplayProgress(progressTarget);
+  }, [progressTarget]);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -111,7 +116,7 @@ export default function App() {
       } catch (err) {
         setError((err as Error).message);
       }
-    }, 3000);
+    }, 800);
 
     return () => window.clearInterval(interval);
   }, [job]);
@@ -317,9 +322,9 @@ export default function App() {
                     <h3 className="mb-1 text-xl font-bold text-white">Generating...</h3>
                     <p className="mb-4 text-sm text-gray-300">안정성을 위해 다른 조작이 잠깁니다</p>
                     <div className="h-1.5 w-48 overflow-hidden rounded-full bg-gray-700">
-                      <div className="h-full bg-blue-500 transition-all duration-300 ease-out" style={{ width: `${progress}%` }} />
+                      <div className="h-full bg-blue-500 transition-all duration-300 ease-out" style={{ width: `${displayProgress}%` }} />
                     </div>
-                    <span className="mt-2 font-mono text-xs text-blue-400">{progress}%</span>
+                    <span className="mt-2 font-mono text-xs text-blue-400">{Math.round(displayProgress)}%</span>
                   </div>
                 )}
               </div>

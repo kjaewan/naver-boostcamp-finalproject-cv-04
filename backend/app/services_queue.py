@@ -33,6 +33,10 @@ PHASE_PROGRESS = {
 }
 
 
+SAMPLING_PROGRESS_START = PHASE_PROGRESS["sampling"]
+SAMPLING_PROGRESS_END = PHASE_PROGRESS["assembling"] - 1
+
+
 @dataclass
 class JobRecord:
     job_id: str
@@ -243,6 +247,20 @@ class RenderQueueService:
                 job.status = "processing"
             self.storage.write_job(job_id, asdict(job))
 
+    async def _update_sampling_progress(self, job_id: str, ratio: float) -> None:
+        ratio = max(0.0, min(1.0, ratio))
+        mapped = SAMPLING_PROGRESS_START + int(round((SAMPLING_PROGRESS_END - SAMPLING_PROGRESS_START) * ratio))
+        async with self.lock:
+            job = self.jobs[job_id]
+            if job.phase != "sampling" or job.status not in {"processing", "queued"}:
+                return
+            if mapped <= job.progress:
+                return
+            job.progress = mapped
+            job.status = "processing"
+            job.updated_at = self._now()
+            self.storage.write_job(job_id, asdict(job))
+
     async def _complete_job(self, job_id: str, cache_key: str) -> None:
         video_url, thumb_url = self.storage.result_urls(cache_key)
         async with self.lock:
@@ -283,12 +301,16 @@ class RenderQueueService:
                 async def phase_callback(phase: str) -> None:
                     await self._update_phase(job_id, phase)
 
+                async def sampling_progress_callback(ratio: float) -> None:
+                    await self._update_sampling_progress(job_id, ratio)
+
                 start_ts = time.monotonic()
                 video_path, thumb_path = await self.comfy_service.render(
                     image_filename=image_filename,
                     cache_key=cache_key,
                     render_dir=render_dir,
                     phase_callback=phase_callback,
+                    sampling_progress_callback=sampling_progress_callback,
                 )
 
                 self.storage.write_meta(

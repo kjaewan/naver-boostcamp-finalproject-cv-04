@@ -9,9 +9,13 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, urlunparse
 
 import httpx
+try:
+    import websockets
+except ImportError:  # pragma: no cover
+    websockets = None
 
 from .config import Settings
 
@@ -19,6 +23,7 @@ from .config import Settings
 logger = logging.getLogger(__name__)
 
 PhaseCallback = Callable[[str], Awaitable[None]]
+SamplingProgressCallback = Callable[[float], Awaitable[None]]
 
 
 class ComfyError(RuntimeError):
@@ -42,10 +47,10 @@ class ComfyService:
         prompt["341"]["inputs"]["filename_prefix"] = f"Live2D/{cache_key}"
         return prompt
 
-    async def _post_prompt(self, prompt: dict[str, Any]) -> str:
+    async def _post_prompt(self, prompt: dict[str, Any], client_id: str) -> str:
         payload = {
             "prompt": prompt,
-            "client_id": str(uuid.uuid4()),
+            "client_id": client_id,
         }
         try:
             async with httpx.AsyncClient(timeout=20) as client:
@@ -61,6 +66,122 @@ class ComfyService:
             if isinstance(exc, ComfyError):
                 raise
             raise ComfyError("COMFY_HTTP_ERROR", f"failed to queue prompt: {exc}") from exc
+
+    def _build_ws_url(self, client_id: str) -> str:
+        parsed = urlparse(self.settings.comfy_base_url)
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        ws_path = f"{parsed.path.rstrip('/')}/ws"
+        query = urlencode({"clientId": client_id})
+        return urlunparse((scheme, parsed.netloc, ws_path, "", query, ""))
+
+    @staticmethod
+    def _as_float(value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _clamp_ratio(value: float) -> float:
+        return max(0.0, min(1.0, value))
+
+    def _extract_sampling_ratio(self, message_type: str, payload: dict[str, Any]) -> Optional[float]:
+        if message_type == "progress":
+            max_value = self._as_float(payload.get("max"))
+            current_value = self._as_float(payload.get("value"))
+            if max_value <= 1:
+                return None
+            return self._clamp_ratio(current_value / max_value)
+
+        if message_type != "progress_state":
+            return None
+
+        nodes = payload.get("nodes")
+        if not isinstance(nodes, dict):
+            return None
+
+        best_ratio: Optional[float] = None
+        best_rank = -1.0
+        for node in nodes.values():
+            if not isinstance(node, dict):
+                continue
+            max_value = self._as_float(node.get("max"))
+            if max_value <= 1:
+                continue
+            current_value = self._as_float(node.get("value"))
+            state = str(node.get("state", ""))
+            ratio = self._clamp_ratio(current_value / max_value)
+            state_rank = 2 if state == "running" else 1 if state == "finished" else 0
+            rank = state_rank * 1_000_000 + max_value
+            if rank > best_rank:
+                best_rank = rank
+                best_ratio = ratio
+        return best_ratio
+
+    async def _stream_sampling_progress(
+        self,
+        client_id: str,
+        prompt_id_ref: dict[str, Optional[str]],
+        sampling_progress_callback: SamplingProgressCallback,
+    ) -> None:
+        if websockets is None:
+            return
+
+        ws_url = self._build_ws_url(client_id)
+        try:
+            async with websockets.connect(
+                ws_url,
+                open_timeout=15,
+                close_timeout=3,
+                ping_interval=20,
+                ping_timeout=20,
+            ) as ws:
+                while True:
+                    raw = await ws.recv()
+                    if not isinstance(raw, str):
+                        continue
+
+                    try:
+                        message = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+
+                    message_type = str(message.get("type", ""))
+                    payload = message.get("data")
+                    if not isinstance(payload, dict):
+                        continue
+
+                    target_prompt_id = prompt_id_ref.get("value")
+                    payload_prompt_id = payload.get("prompt_id")
+                    if payload_prompt_id is not None:
+                        payload_prompt_id = str(payload_prompt_id)
+
+                    if not target_prompt_id:
+                        continue
+                    if target_prompt_id and payload_prompt_id and payload_prompt_id != target_prompt_id:
+                        continue
+
+                    sampling_ratio = self._extract_sampling_ratio(message_type, payload)
+                    if sampling_ratio is not None:
+                        await sampling_progress_callback(sampling_ratio)
+
+                    if (
+                        target_prompt_id
+                        and payload_prompt_id == target_prompt_id
+                        and message_type in {"execution_success", "execution_error", "execution_interrupted"}
+                    ):
+                        break
+                    if (
+                        target_prompt_id
+                        and payload_prompt_id == target_prompt_id
+                        and message_type == "executing"
+                        and payload.get("node") is None
+                    ):
+                        break
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("failed to stream Comfy progress: %s", exc)
 
     async def _get_history(self, prompt_id: str) -> Optional[dict[str, Any]]:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -213,15 +334,37 @@ class ComfyService:
         cache_key: str,
         render_dir: Path,
         phase_callback: Optional[PhaseCallback] = None,
+        sampling_progress_callback: Optional[SamplingProgressCallback] = None,
     ) -> tuple[Path, Path]:
         if phase_callback:
             await phase_callback("prompting")
         prompt = self.build_prompt(image_filename=image_filename, cache_key=cache_key)
-        prompt_id = await self._post_prompt(prompt)
+        client_id = uuid.uuid4().hex
+        prompt_id_ref: dict[str, Optional[str]] = {"value": None}
+        sampling_task: Optional[asyncio.Task[None]] = None
+        if sampling_progress_callback:
+            sampling_task = asyncio.create_task(
+                self._stream_sampling_progress(
+                    client_id=client_id,
+                    prompt_id_ref=prompt_id_ref,
+                    sampling_progress_callback=sampling_progress_callback,
+                )
+            )
 
-        if phase_callback:
-            await phase_callback("sampling")
-        history = await self._wait_for_history(prompt_id, timeout_sec=self.settings.render_timeout_sec)
+        try:
+            prompt_id = await self._post_prompt(prompt, client_id=client_id)
+            prompt_id_ref["value"] = prompt_id
+
+            if phase_callback:
+                await phase_callback("sampling")
+            history = await self._wait_for_history(prompt_id, timeout_sec=self.settings.render_timeout_sec)
+        finally:
+            if sampling_task:
+                sampling_task.cancel()
+                try:
+                    await sampling_task
+                except asyncio.CancelledError:
+                    pass
 
         if phase_callback:
             await phase_callback("assembling")

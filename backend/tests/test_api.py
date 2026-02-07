@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, queue_service
-from app.services_queue import JobRecord
+from app.services_queue import PHASE_PROGRESS, JobRecord
 
 
 client = TestClient(app)
@@ -235,3 +236,41 @@ def test_clear_render_history(monkeypatch) -> None:
     assert response.json()["deleted_count"] == 1
     assert deleted_job_ids == ["job-completed"]
     assert "job-queued" in queue_service.jobs
+
+
+@pytest.mark.asyncio
+async def test_sampling_progress_updates_job(monkeypatch) -> None:
+    writes: list[str] = []
+
+    def fake_write_job(job_id: str, _payload: dict) -> None:
+        writes.append(job_id)
+
+    monkeypatch.setattr(queue_service.storage, "write_job", fake_write_job)
+    monkeypatch.setattr(
+        queue_service,
+        "jobs",
+        {
+            "job-sampling": JobRecord(
+                job_id="job-sampling",
+                status="processing",
+                phase="sampling",
+                progress=PHASE_PROGRESS["sampling"],
+                track={"track_id": "1", "title": "Song", "artist": "Artist"},
+                result={"video_url": None, "thumbnail_url": None, "cache_key": "k"},
+                error={"code": None, "message": None},
+                cache_key="k",
+                image_filename="a.jpg",
+                created_at="2026-02-07T10:00:00+00:00",
+                updated_at="2026-02-07T10:00:00+00:00",
+            )
+        },
+    )
+
+    await queue_service._update_sampling_progress("job-sampling", 0.5)
+    job = queue_service.jobs["job-sampling"]
+    assert PHASE_PROGRESS["sampling"] < job.progress < PHASE_PROGRESS["assembling"]
+    previous_progress = job.progress
+
+    await queue_service._update_sampling_progress("job-sampling", 0.1)
+    assert queue_service.jobs["job-sampling"].progress == previous_progress
+    assert writes
