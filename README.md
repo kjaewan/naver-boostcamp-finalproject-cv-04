@@ -158,13 +158,6 @@ User -> React Frontend -> FastAPI Backend
 
 ---
 
-## Links
-- 발표영상: `<발표 영상 링크>`
-- 발표자료: `<발표 자료 링크>`
-- 랩업 리포트: `<랩업 리포트 링크>`
-
----
-
 ## 팀원 소개
 
 <table align="center">
