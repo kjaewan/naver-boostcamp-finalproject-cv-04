@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pro-cv 생성 파이프라인</title>
+  <style>
+    :root {
+      --bg: #e8e8e8;
+      --ink: #111827;
+      --muted: #334155;
+      --line: #1f2937;
+      --panel: #ffffff;
+      --lane: #f8fafc;
+      --req-fill: #eff6ff;
+      --req-stroke: #2563eb;
+      --render-fill: #ecfeff;
+      --render-stroke: #0e7490;
+      --response-fill: #f5f3ff;
+      --response-stroke: #6d28d9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    .canvas {
+      border: 1px solid #c9c9c9;
+      border-radius: 8px;
+      background: #ececec;
+      overflow: auto;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    svg {
+      width: 100%;
+      min-width: 1580px;
+      display: block;
+      height: auto;
+    }
+
+    .frame {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 2.1;
+    }
+
+    .lane {
+      fill: var(--lane);
+      stroke: #94a3b8;
+      stroke-width: 1.5;
+    }
+
+    .lane-label {
+      font-size: 18px;
+      font-weight: 700;
+      fill: #111827;
+    }
+
+    .step-req {
+      fill: var(--req-fill);
+      stroke: var(--req-stroke);
+      stroke-width: 2;
+    }
+
+    .step-render {
+      fill: var(--render-fill);
+      stroke: var(--render-stroke);
+      stroke-width: 2;
+    }
+
+    .response {
+      fill: var(--response-fill);
+      stroke: var(--response-stroke);
+      stroke-width: 2;
+    }
+
+    .phase {
+      fill: #f1f5f9;
+      stroke: #475569;
+      stroke-width: 1.3;
+    }
+
+    .phase-done {
+      fill: #dcfce7;
+      stroke: #16a34a;
+      stroke-width: 1.3;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      fill: #111827;
+    }
+
+    .module-title {
+      font-size: 21px;
+      font-weight: 700;
+      fill: #111827;
+      text-anchor: middle;
+    }
+
+    .small {
+      font-size: 13px;
+      fill: var(--muted);
+      text-anchor: middle;
+      font-weight: 600;
+    }
+
+    .phase-text {
+      font-size: 14px;
+      fill: #0f172a;
+      text-anchor: middle;
+      font-weight: 700;
+    }
+
+    .edge {
+      fill: none;
+      stroke-width: 2.8;
+    }
+
+    .edge-req {
+      stroke: #2563eb;
+      marker-end: url(#arrow-req);
+    }
+
+    .edge-miss {
+      stroke: #dc2626;
+      marker-end: url(#arrow-miss);
+    }
+
+    .edge-render {
+      stroke: #0f766e;
+      marker-end: url(#arrow-render);
+    }
+
+    .edge-hit {
+      stroke: #ea580c;
+      marker-end: url(#arrow-hit);
+    }
+
+    .edge-done {
+      stroke: #6d28d9;
+      marker-end: url(#arrow-done);
+    }
+
+    .label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .label-req { fill: #1d4ed8; }
+    .label-miss { fill: #b91c1c; }
+    .label-render { fill: #0f766e; }
+    .label-hit { fill: #c2410c; }
+    .label-done { fill: #5b21b6; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="canvas">
+      <svg viewBox="0 0 1640 960" role="img" aria-label="pro-cv 생성 파이프라인 다이어그램">
+        <defs>
+          <marker id="arrow-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"></path>
+          </marker>
+          <marker id="arrow-miss" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"></path>
+          </marker>
+          <marker id="arrow-render" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"></path>
+          </marker>
+          <marker id="arrow-hit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"></path>
+          </marker>
+          <marker id="arrow-done" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6d28d9"></path>
+          </marker>
+        </defs>
+
+        <!-- 프레임 -->
+        <rect class="frame" x="40" y="34" width="1560" height="892" rx="14" ry="14"></rect>
+        <rect class="frame" x="84" y="74" width="1472" height="814" rx="12" ry="12"></rect>
+        <text class="title" x="1298" y="64">생성 파이프라인</text>
+
+        <!-- 레인 -->
+        <rect class="lane" x="130" y="146" width="1320" height="250" rx="12" ry="12"></rect>
+        <text class="lane-label" x="152" y="174">요청 + 캐시 판별</text>
+
+        <rect class="lane" x="130" y="456" width="1320" height="250" rx="12" ry="12"></rect>
+        <text class="lane-label" x="152" y="484">렌더 실행 + 후처리</text>
+
+        <!-- 상단(요청/캐시) -->
+        <rect class="step-req" x="170" y="198" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="280" y="230">1. 트랙 선택</text>
+        <text class="small" x="280" y="258">사용자 검색어 입력</text>
+        <text class="small" x="280" y="282">프론트엔드에서 곡 선택</text>
+        <text class="small" x="280" y="306">앨범아트 URL 확보</text>
+
+        <rect class="step-req" x="440" y="198" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="550" y="230">2. 렌더 요청</text>
+        <text class="small" x="550" y="258">POST /api/v1/renders</text>
+        <text class="small" x="550" y="282">track + album_art 전달</text>
+        <text class="small" x="550" y="306">job_id 발급</text>
+
+        <rect class="step-req" x="710" y="198" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="820" y="230">3. 입력 준비</text>
+        <text class="small" x="820" y="258">앨범아트 다운로드</text>
+        <text class="small" x="820" y="282">image bytes 해시</text>
+        <text class="small" x="820" y="306">cache_key 계산</text>
+
+        <rect class="step-req" x="980" y="198" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="1090" y="230">4. 캐시 조회</text>
+        <text class="small" x="1090" y="258">workflow + preset 포함</text>
+        <text class="small" x="1090" y="282">Storage에서 키 조회</text>
+        <text class="small" x="1090" y="306">hit 즉시 반환 / miss 렌더</text>
+
+        <rect class="response" x="1250" y="208" width="220" height="145" rx="12" ry="12"></rect>
+        <text class="module-title" x="1360" y="236">응답</text>
+        <text class="small" x="1360" y="264">result_url / thumb_url</text>
+        <text class="small" x="1360" y="288">meta_url / status</text>
+        <text class="small" x="1360" y="312">프론트 폴링으로 확인</text>
+
+        <!-- 하단(렌더) -->
+        <rect class="step-render" x="440" y="508" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="550" y="540">5. 큐 적재</text>
+        <text class="small" x="550" y="568">입력 이미지를 저장</text>
+        <text class="small" x="550" y="592">ComfyUI input 경로 준비</text>
+        <text class="small" x="550" y="616">Worker 큐에 enqueue</text>
+
+        <rect class="step-render" x="710" y="508" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="820" y="540">6. 생성 실행</text>
+        <text class="small" x="820" y="568">ComfyUI /prompt 실행</text>
+        <text class="small" x="820" y="592">/ws + /history 조회</text>
+        <text class="small" x="820" y="616">진행률/phase 업데이트</text>
+
+        <rect class="step-render" x="980" y="508" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="1090" y="540">7. 후처리</text>
+        <text class="small" x="1090" y="568">완료 파일 다운로드</text>
+        <text class="small" x="1090" y="592">FFmpeg mp4 정규화</text>
+        <text class="small" x="1090" y="616">thumb.jpg 생성</text>
+
+        <rect class="step-render" x="1250" y="508" width="220" height="160" rx="12" ry="12"></rect>
+        <text class="module-title" x="1360" y="540">8. 저장 / 완료</text>
+        <text class="small" x="1360" y="568">data/renders/&lt;cache_key&gt;</text>
+        <text class="small" x="1360" y="592">meta.json 저장</text>
+        <text class="small" x="1360" y="616">status = completed</text>
+
+        <!-- 화살표 -->
+        <path class="edge edge-req" d="M 390 278 L 440 278"></path>
+        <text class="label label-req" x="405" y="260">사용자 요청</text>
+
+        <path class="edge edge-req" d="M 660 278 L 710 278"></path>
+        <text class="label label-req" x="674" y="260">API 호출</text>
+
+        <path class="edge edge-req" d="M 930 278 L 980 278"></path>
+        <text class="label label-req" x="946" y="260">캐시 키 기반 조회</text>
+
+        <path class="edge edge-hit" d="M 1200 248 L 1250 248"></path>
+        <text class="label label-hit" x="1206" y="230">캐시 hit</text>
+
+        <path class="edge edge-miss" d="M 1090 358 L 1090 438 L 550 438 L 550 508"></path>
+        <text class="label label-miss" x="792" y="430">캐시 miss - 렌더 파이프라인 진입</text>
+
+        <path class="edge edge-render" d="M 660 588 L 710 588"></path>
+        <text class="label label-render" x="670" y="570">큐 소비</text>
+
+        <path class="edge edge-render" d="M 930 588 L 980 588"></path>
+        <text class="label label-render" x="942" y="570">원본 출력</text>
+
+        <path class="edge edge-render" d="M 1200 588 L 1250 588"></path>
+        <text class="label label-render" x="1210" y="570">meta/파일 저장</text>
+
+        <path class="edge edge-done" d="M 1360 508 L 1360 420 L 1370 420 L 1370 353"></path>
+        <text class="label label-done" x="1378" y="412">완료 응답</text>
+
+        <!-- 상태 흐름 -->
+        <text class="lane-label" x="152" y="746">상태(phase) 흐름</text>
+
+        <rect class="phase" x="170" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="254" y="793">queued</text>
+
+        <rect class="phase" x="350" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="434" y="793">preparing</text>
+
+        <rect class="phase" x="530" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="614" y="793">prompting</text>
+
+        <rect class="phase" x="710" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="794" y="793">sampling</text>
+
+        <rect class="phase" x="890" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="974" y="793">assembling</text>
+
+        <rect class="phase" x="1070" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="1154" y="793">postprocessing</text>
+
+        <rect class="phase-done" x="1250" y="766" width="168" height="42" rx="9" ry="9"></rect>
+        <text class="phase-text" x="1334" y="793">done</text>
+
+        <path class="edge edge-done" d="M 338 787 L 350 787"></path>
+        <path class="edge edge-done" d="M 518 787 L 530 787"></path>
+        <path class="edge edge-done" d="M 698 787 L 710 787"></path>
+        <path class="edge edge-done" d="M 878 787 L 890 787"></path>
+        <path class="edge edge-done" d="M 1058 787 L 1070 787"></path>
+        <path class="edge edge-done" d="M 1238 787 L 1250 787"></path>
+      </svg>
+    </section>
+  </main>
+</body>
+</html>

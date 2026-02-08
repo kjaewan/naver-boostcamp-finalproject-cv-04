@@ -92,7 +92,7 @@
 - 카메라를 고정 구도로 제한해 줌/팬/틸트로 인한 프레이밍 변화 차단
 - `WanVideoLoraSelectMulti`에서 LoRA 3종 동시 적용  
   (`livewallpaper_wan22_5b_TI2V_000005000.safetensors`, `live2d_wan2.2.safetensors`, `step-6450.safetensors`)
-- 전용 학습 LoRA(`step-6450`)를 포함해 형태 보존과 Live2D 질감의 균형 확보
+- 전용 학습 LoRA(`live2d_wan2.2`,`step-6450`)를 포함해 형태 보존과 Live2D 질감의 균형 확보
 
 이후에는 원본 커버의 정체성을 유지하면서도 "움직이는 앨범아트"로 자연스럽게 인지되는 결과를 안정적으로 얻을 수 있었습니다.
 
@@ -121,19 +121,19 @@
 ---
 
 ## 시스템 아키텍처
-아키텍처 이미지는 추후 삽입 예정입니다.
 
-<!-- 예시: ![architecture](./assets/architecture.png) -->
-
-```text
-User -> React Frontend -> FastAPI Backend
-     -> (iTunes API + YouTube API + Queue + Cache)
-     -> ComfyUI -> MP4 / Thumbnail / Meta
-```
+<div align="center">
+  <img src="./assets/architecture.png" alt="시스템 아키텍처 다이어그램" width="720" />
+</div>
 
 ---
 
 ## 생성 파이프라인
+
+<div align="center">
+  <img src="./assets/pipeline.png" alt="생성 파이프라인 다이어그램" width="720" />
+</div>
+
 1. 사용자가 검색어 입력 후 트랙 선택
 2. `POST /api/v1/renders`로 렌더 Job 생성
 3. 백엔드가 앨범아트 다운로드 후 캐시 키 계산
@@ -196,3 +196,4 @@ User -> React Frontend -> FastAPI Backend
 - DB 연결
 - 오디오 정보도 받아서 오디오가 생성 이미지에 영향을 주도록 설정
 - 16:9 해상도로도 출력할 수 있도록 지원
+- ComfyUI에 의존하지 않는 자체 파이프라인 구축하기
