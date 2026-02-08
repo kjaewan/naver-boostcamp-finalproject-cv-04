@@ -134,6 +134,7 @@
   <img src="./assets/pipeline.png" alt="생성 파이프라인 다이어그램" width="720" />
 </div>
 
+
 1. 사용자가 검색어 입력 후 트랙 선택
 2. `POST /api/v1/renders`로 렌더 Job 생성
 3. 백엔드가 앨범아트 다운로드 후 캐시 키 계산
@@ -145,6 +146,15 @@
 
 상태(phase) 흐름:
 `queued -> preparing -> prompting -> sampling -> assembling -> postprocessing -> done`
+
+---
+
+## ComfyUI 내부 파이프라인
+
+<div align="center">
+  <img src="./assets/ComfyUI_pipeline.png" alt="생성 파이프라인 다이어그램" width="720" />
+</div>
+
 
 ---
 
