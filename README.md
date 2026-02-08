@@ -45,6 +45,7 @@
 - [API 개요](#api-개요)
 - [Links](#links)
 - [팀원 소개](#팀원-소개)
+- [Future Work](#future-work)
 
 ---
 
@@ -178,7 +179,7 @@ User -> React Frontend -> FastAPI Backend
       <img src="https://github.com/YangJH01.png" width="90"/><br/>
       <b>양지훈</b><br/>
       <a href="https://github.com/YangJH01">@YangJH01</a><br/>
-      <sub>loop 방식 설계</sub>
+      <sub>Loop 방식 설계</sub>
     </td>
     <td align="center">
       <img src="https://github.com/kjaewan.png" width="90"/><br/>
@@ -190,14 +191,14 @@ User -> React Frontend -> FastAPI Backend
       <img src="https://github.com/Dae0Kkomi.png" width="90"/><br/>
       <b>고대영</b><br/>
       <a href="https://github.com/Dae0Kkomi">@Dae0Kkomi</a><br/>
-      <sub>workflow 설계</sub>
+      <sub>Workflow 설계</sub>
     </td>
   </tr>
 </table>
 
 ---
 
-## Feature Work
+## Future Work
 - 모델 경량화(생성에 걸리는 시간 감소)
 - DB 연결
 - 오디오 정보도 받아서 오디오가 생성 이미지에 영향을 주도록 설정
