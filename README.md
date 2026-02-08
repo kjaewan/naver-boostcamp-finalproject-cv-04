@@ -10,9 +10,9 @@
 
 <!-- ✅ Links -->
 <p>
-  <a href="PASTE_PRESENTATION_VIDEO_LINK" target="_blank"><b>발표영상</b></a>
+  <a href="https://www.youtube.com/watch?v=Uy5Pq1Zzlok" target="_blank"><b>발표영상</b></a>
   &nbsp;•&nbsp;
-  <a href="PASTE_PRESENTATION_SLIDES_LINK" target="_blank"><b>발표자료</b></a>
+  <a href="./assets/CV-04 발표.pdf" target="_blank"><b>발표자료</b></a>
   &nbsp;•&nbsp;
   <a href="PASTE_WRAPUP_REPORT_LINK" target="_blank"><b>랩업 리포트</b></a>
 </p>
