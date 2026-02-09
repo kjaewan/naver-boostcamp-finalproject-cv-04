@@ -42,6 +42,7 @@
 - [핵심 문제와 해결](#핵심-문제와-해결)
 - [시스템 아키텍처](#시스템-아키텍처)
 - [생성 파이프라인](#생성-파이프라인)
+- [ComfyUI 설정 가이드](#comfyui-설정-가이드)
 - [API 개요](#api-개요)
 - [Links](#links)
 - [팀원 소개](#팀원-소개)
@@ -155,6 +156,15 @@
   <img src="./assets/ComfyUI_pipeline.png" alt="생성 파이프라인 다이어그램" width="720" />
 </div>
 
+
+---
+
+## ComfyUI 설정 가이드
+ComfyUI 설치/의존성/모델 배치 상세 문서는 `ComfyUI_guide/README.md`를 참고하세요.
+
+기본 실행 전제:
+- 실제 ComfyUI는 프로젝트 형제 폴더 `../ComfyUI`
+- 경로/주소는 `.env`의 `COMFY_DIR`, `COMFY_INPUT_DIR`, `COMFY_BASE_URL`로 변경 가능
 
 ---
 
