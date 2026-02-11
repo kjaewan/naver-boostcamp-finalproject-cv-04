@@ -14,7 +14,7 @@
   &nbsp;•&nbsp;
   <a href="./assets/CV-04 발표.pdf" target="_blank"><b>발표자료</b></a>
   &nbsp;•&nbsp;
-  <a href="PASTE_WRAPUP_REPORT_LINK" target="_blank"><b>랩업 리포트</b></a>
+  <a href="./assets/CV04 Final project WrapUp report.pdf" target="_blank"><b>랩업 리포트</b></a>
 </p>
 
 
